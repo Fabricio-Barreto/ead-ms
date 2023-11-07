@@ -20,6 +20,9 @@ import java.time.ZoneId;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
+
 @RestController
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RequestMapping("/users")
@@ -33,14 +36,24 @@ public class UserController {
                                                        @PageableDefault(page = 0, size = 5, sort = "userId",
                                                                direction = Sort.Direction.ASC) Pageable pageable) {
         Page<UserModel> userModelPage = userService.findAll(spec, pageable);
+        if (!userModelPage.isEmpty()) {
+            for (UserModel user: userModelPage.toList()) {
+                user.add(linkTo(methodOn(UserController.class).getOneUser(user.getUserId())).withSelfRel());
+            }
+        }
         return ResponseEntity.status(HttpStatus.OK).body(userModelPage);
     }
 
     @GetMapping("/{userId}")
     public ResponseEntity<Object> getOneUser(@PathVariable(value = "userId")UUID userId){
         Optional<UserModel> userModelOptional = userService.findById(userId);
-        return userModelOptional.<ResponseEntity<Object>>map(userModel -> ResponseEntity.status(HttpStatus.OK).body(userModel))
-                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found!"));
+        if (userModelOptional.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found!");
+        } else {
+            var userModel = userModelOptional.get();
+            userModel.add(linkTo(methodOn(UserController.class).getOneUser(userModel.getUserId())).withSelfRel());
+            return ResponseEntity.status(HttpStatus.OK).body(userModel);
+        }
     }
 
     @DeleteMapping("/{userId}")
@@ -68,6 +81,7 @@ public class UserController {
             userModel.setCpf(userDto.getCpf());
             userModel.setLastUpdateDate(LocalDateTime.now(ZoneId.of("UTC")));
             userService.save(userModel);
+            userModel.add(linkTo(methodOn(UserController.class).getOneUser(userModel.getUserId())).withSelfRel());
             return ResponseEntity.status(HttpStatus.OK).body(userModel);
         }
     }
@@ -86,6 +100,7 @@ public class UserController {
             userModel.setPassword(userDto.getPassword());
             userModel.setLastUpdateDate(LocalDateTime.now(ZoneId.of("UTC")));
             userService.save(userModel);
+            userModel.add(linkTo(methodOn(UserController.class).getOneUser(userModel.getUserId())).withSelfRel());
             return ResponseEntity.status(HttpStatus.OK).body("Password updated successfully.");
         }
     }
@@ -102,6 +117,7 @@ public class UserController {
             userModel.setImageUrl(userDto.getImageUrl());
             userModel.setLastUpdateDate(LocalDateTime.now(ZoneId.of("UTC")));
             userService.save(userModel);
+            userModel.add(linkTo(methodOn(UserController.class).getOneUser(userModel.getUserId())).withSelfRel());
             return ResponseEntity.status(HttpStatus.OK).body(userModel);
         }
     }
